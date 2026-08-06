@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    *{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+    .login-bg{background:linear-gradient(135deg,#c8e6c9,#81c784);min-height:100vh;display:flex;align-items:center;justify-content:center}
+    .login-card{max-width:400px;width:100%;border:none;border-radius:1.2rem;box-shadow:0 .5rem 2rem rgba(0,0,0,.08)}
+    .app-container{display:flex;min-height:100vh}
+    .sidebar{width:220px;background:#e8f5e9;padding-top:1rem;flex-shrink:0;border-right:1px solid #c8e6c9}
+    .sidebar a{color:#2e7d32;text-decoration:none;padding:.6rem 1rem;display:block;border-radius:.5rem;font-size:.93rem;cursor:pointer;transition:background .15s;margin:.15rem .5rem}
+    .sidebar a:hover{color:#1b5e20;background:#c8e6c9}
+    .sidebar a.active{color:#1b5e20;background:#a5d6a7;font-weight:500}
+    .sidebar .grp{border-top:1px solid #c8e6c9;margin-top:1rem;padding:.8rem 1rem 0}
+    .sidebar .grp-title{color:#388e3c;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.3rem}
+    .sidebar .grp-member{color:#2e7d32;font-size:.85rem;padding:.1rem 0}
+    .sidebar .stitle{color:#1b5e20;font-weight:600;font-size:.95rem}
+    .main-content{flex:1;padding:2rem;background:#fafafa}
+    .card{border:none;border-radius:.75rem;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+    .card-header{border-radius:.75rem .75rem 0 0!important;background:#f5f5f5;border-bottom:1px solid #eee}
+    .btn{border-radius:.5rem}
+    .btn-primary,.btn-primary:hover{background-color:#4caf50;border-color:#4caf50}
+    .btn-primary:hover{background-color:#43a047;border-color:#43a047}
+    .badge{border-radius:.4rem}
+    .form-control,.form-select{border-radius:.5rem}
+    .form-check-input:checked{background-color:#4caf50;border-color:#4caf50}
+    .table{font-size:.9rem}
+    .table th,.table td{vertical-align:middle}
+    @media(max-width:768px){.app-container{flex-direction:column}.sidebar{width:100%;border-right:none;border-bottom:1px solid #c8e6c9}}
+  </style>
+</head>
+<body>
+
+<div id="page-login" class="login-bg">
+  <div class="card login-card">
+    <div class="card-body p-5">
+      <h3 class="text-center mb-4">薩提爾生命探索</h3>
+      <div id="loginAlert" class="alert d-none"></div>
+      <form id="loginForm">
+        <div class="mb-3"><label class="form-label">帳號</label><input type="text" class="form-control" id="f_user" required autofocus></div>
+        <div class="mb-3"><label class="form-label">密碼</label><input type="password" class="form-control" id="f_pass" required></div>
+        <button type="submit" class="btn btn-primary w-100" id="loginBtn">登入</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="page-app" class="app-container d-none">
+  <nav class="sidebar">
+    <div class="text-center mb-3"><span class="stitle">薩提爾生命探索</span></div>
+    <a onclick="nav('home')" class="active" id="nav-home">儀表板</a>
+    <div id="adminNav" class="d-none">
+      <a onclick="nav('courses')" id="nav-courses">課程管理</a>
+      <a onclick="nav('att')" id="nav-att">出缺席管理</a>
+      <a onclick="nav('groups')" id="nav-groups">分組管理</a>
+      <a onclick="nav('members')" id="nav-members">成員管理</a>
+    </div>
+    <div class="grp" id="sideGroup"></div>
+    <div class="px-3 py-3 mt-4">
+      <small class="text-muted" id="sideUser"></small><br>
+      <a onclick="doLogout()" style="color:#dc3545;font-size:.85rem">登出</a>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div id="alertArea"></div>
+    <div id="sec-home"></div>
+    <div id="sec-courses" class="d-none"></div>
+    <div id="sec-att" class="d-none"></div>
+    <div id="sec-groups" class="d-none"></div>
+    <div id="sec-members" class="d-none"></div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+var U = null; // current user
+
+// 檢查是否有存的 session（1小時內有效）
+(function() {
+  try {
+    var saved = localStorage.getItem('satir_user');
+    var savedTime = localStorage.getItem('satir_time');
+    if (saved && savedTime) {
+      var elapsed = Date.now() - Number(savedTime);
+      if (elapsed < 3600000) { // 1小時
+        U = JSON.parse(saved);
+        enterApp();
+      } else {
+        localStorage.removeItem('satir_user');
+        localStorage.removeItem('satir_time');
+      }
+    }
+  } catch(e) {}
+})();
+
+// === Login ===
+document.getElementById('loginForm').onsubmit = function(e) {
+  e.preventDefault();
+  var btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = '登入中...';
+  var u = document.getElementById('f_user').value.trim();
+  var p = document.getElementById('f_pass').value.trim();
+  google.script.run.withSuccessHandler(function(r) {
+    if (r.ok) { U = r.user; localStorage.setItem('satir_user', JSON.stringify(U)); localStorage.setItem('satir_time', String(Date.now())); enterApp(); }
+    else { showLogin(r.msg); btn.disabled = false; btn.textContent = '登入'; }
+  }).withFailureHandler(function(e) {
+    showLogin('系統錯誤'); btn.disabled = false; btn.textContent = '登入';
+  }).login(u, p);
+};
+
+function showLogin(msg) {
+  var el = document.getElementById('loginAlert');
+  el.className = 'alert alert-danger'; el.textContent = msg; el.classList.remove('d-none');
+}
+
+function doLogout() {
+  U = null;
+  localStorage.removeItem('satir_user');
+  localStorage.removeItem('satir_time');
+  document.getElementById('page-app').classList.add('d-none');
+  document.getElementById('page-login').classList.remove('d-none');
+  document.getElementById('f_user').value = '';
+  document.getElementById('f_pass').value = '';
+  document.getElementById('loginAlert').classList.add('d-none');
+  document.getElementById('loginBtn').disabled = false;
+  document.getElementById('loginBtn').textContent = '登入';
+}
+
+function enterApp() {
+  document.getElementById('page-login').classList.add('d-none');
+  document.getElementById('page-app').classList.remove('d-none');
+  document.getElementById('sideUser').textContent = U.name;
+  if (U.role === 'admin' || U.role === 'teacher') document.getElementById('adminNav').classList.remove('d-none');
+  else document.getElementById('adminNav').classList.add('d-none');
+  nav('home');
+}
+
+// === Navigation ===
+function nav(name) {
+  ['home','courses','att','groups','members'].forEach(function(s) {
+    document.getElementById('sec-' + s).classList.add('d-none');
+    var n = document.getElementById('nav-' + s);
+    if (n) n.classList.remove('active');
+  });
+  document.getElementById('sec-' + name).classList.remove('d-none');
+  var navEl = document.getElementById('nav-' + name);
+  if (navEl) navEl.classList.add('active');
+
+  if (name === 'home') loadHome();
+  if (name === 'courses') loadCourses();
+  if (name === 'att') loadAttPage();
+  if (name === 'groups') loadGroups();
+  if (name === 'members') loadMembers();
+}
+
+function alert2(msg, type) {
+  var a = document.getElementById('alertArea');
+  a.innerHTML = '<div class="alert alert-' + type + ' alert-dismissible fade show">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+  setTimeout(function() { a.innerHTML = ''; }, 4000);
+}
+
+// === Dashboard ===
+function loadHome() {
+  document.getElementById('sec-home').innerHTML = '<p class="text-muted">載入中...</p>';
+  google.script.run.withSuccessHandler(renderHome).withFailureHandler(function(e) {
+    document.getElementById('sec-home').innerHTML = '<p class="text-danger">載入失敗：' + e.message + '</p>';
+  }).getDashboard(U.username);
+}
+
+function renderHome(d) {
+  if (!d || !d.ok) { document.getElementById('sec-home').innerHTML = '<p class="text-danger">無法載入（' + (d ? d.error : '') + '）</p>'; return; }
+  var h = '<h4 class="mb-4">歡迎回來，' + d.name + '</h4>';
+
+  // 分組 + 出缺勤
+  h += '<div class="row mb-4"><div class="col-md-6"><div class="card"><div class="card-header"><h6 class="mb-0">我的分組</h6></div><div class="card-body">';
+  if (d.group) {
+    h += '<p><strong>組別：</strong>' + d.group + '</p>';
+    h += '<p><strong>身份：</strong>' + (d.isLeader ? '組長' : '組員') + '</p>';
+    h += '<p class="mb-0"><strong>組員：</strong>' + d.groupMembers.sort(function(a,b){return b.isLeader-a.isLeader;}).map(function(m){return m.name+(m.isLeader?' (組長)':'');}).join('、') + '</p>';
+  } else { h += '<span class="text-muted">尚未分組</span>'; }
+  h += '</div></div></div>';
+  h += '<div class="col-md-6"><div class="card"><div class="card-header"><h6 class="mb-0">出缺勤狀況</h6></div><div class="card-body">';
+  h += '<span class="badge bg-success me-2">簽到 ' + d.signed + ' 次</span>';
+  h += '<span class="badge bg-warning text-dark me-2">請假 ' + d.leaves + ' 次</span>';
+  h += '<span class="badge bg-danger">曠課 ' + d.absent + ' 次</span>';
+  h += '<p class="mt-2 mb-0 text-muted" style="font-size:.85rem">實體課程連續請假：' + d.consecutiveLeaves + ' 次</p>';
+  h += '</div></div></div></div>';
+
+  // 今日課程
+  h += renderCourseTable('今日課程', d.todayCourses, d.myAtt, true);
+  // 即將到來
+  h += renderCourseTable('即將到來的課程', d.upcomingCourses, d.myAtt, false);
+
+  document.getElementById('sec-home').innerHTML = h;
+
+  // 側邊欄分組
+  var sg = document.getElementById('sideGroup');
+  if (d.group) {
+    var gh = '<div class="grp-title">我的組別：' + d.group + '</div>';
+    d.groupMembers.sort(function(a,b){return b.isLeader-a.isLeader;}).forEach(function(m) {
+      gh += '<div class="grp-member">' + (m.isLeader ? '[組長] ' : '- ') + m.name + '</div>';
+    });
+    sg.innerHTML = gh;
+  } else { sg.innerHTML = ''; }
+}
+
+function renderCourseTable(title, courses, myAtt, isToday) {
+  if (!courses.length) return '<div class="card mb-3"><div class="card-body text-muted">' + (isToday ? '今天沒有課程' : '目前沒有即將到來的課程') + '</div></div>';
+  var h = '<div class="card mb-3"><div class="card-header' + (isToday ? ' text-white" style="background:#4caf50"' : '"') + '><h6 class="mb-0">' + title + '</h6></div>';
+  h += '<div class="card-body"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr>';
+  if (!isToday) h += '<th>日期</th>';
+  h += '<th>時間</th><th>類型</th><th>地點</th><th>狀態</th><th>操作</th></tr></thead><tbody>';
+  courses.forEach(function(c) {
+    var hasRec = myAtt.some(function(a) { return a.courseId === c.id; });
+    var myStatus = '';
+    for (var x = 0; x < myAtt.length; x++) { if (myAtt[x].courseId === c.id) { myStatus = myAtt[x].status; break; } }
+    var loc = c.location || '-';
+    if (loc.indexOf('http') === 0) loc = '<a href="' + loc + '" target="_blank">連結</a>';
+    var badge = '', action = '';
+    if (c.status === 'upcoming') {
+      badge = '<span class="badge bg-warning text-dark">尚未開始</span>';
+      if (!hasRec) action = '<button class="btn btn-sm btn-outline-warning" onclick="doLeave(\'' + c.id + '\')">請假</button>';
+      else action = '<span class="badge bg-warning text-dark">已請假</span>';
+    } else if (c.status === 'ongoing') {
+      badge = '<span class="badge bg-success">進行中</span>';
+      if (!hasRec) action = '<button class="btn btn-sm btn-success" onclick="doSign(\'' + c.id + '\')">簽到</button>';
+      else {
+        if (myStatus === '簽到') action = '<span class="badge bg-success">已簽到</span>';
+        else if (myStatus === '請假') action = '<span class="badge bg-warning text-dark">已請假</span>';
+        else action = '<span class="badge bg-danger">曠課</span>';
+      }
+    } else {
+      badge = '<span class="badge bg-secondary">已結束</span>';
+      if (myStatus === '簽到') action = '<span class="badge bg-success">已簽到</span>';
+      else if (myStatus === '請假') action = '<span class="badge bg-warning text-dark">已請假</span>';
+      else if (myStatus === '曠課') action = '<span class="badge bg-danger">曠課</span>';
+      else action = '-';
+    }
+    h += '<tr>';
+    if (!isToday) h += '<td>' + c.date + '</td>';
+    h += '<td>' + c.time + '</td><td><span class="badge ' + (c.type === '實體' ? 'bg-success' : 'bg-info') + '">' + c.type + '</span></td>';
+    h += '<td>' + loc + '</td><td>' + badge + '</td><td>' + action + '</td></tr>';
+  });
+  h += '</tbody></table></div></div></div>';
+  return h;
+}
+
+function doSign(id) { google.script.run.withSuccessHandler(function(r) { alert2(r.msg, r.ok?'success':'warning'); loadHome(); }).signIn(id, U.username); }
+function doLeave(id) { var reason = prompt('請假原因（可留空）：'); if (reason === null) return; google.script.run.withSuccessHandler(function(r) { alert2(r.msg, r.ok?'success':'warning'); loadHome(); }).requestLeave(id, U.username, reason); }
+</script>
+
+<script>
+// === 課程管理 ===
+function loadCourses() {
+  document.getElementById('sec-courses').innerHTML = '<p class="text-muted">載入中...</p>';
+  google.script.run.withSuccessHandler(renderCourses).withFailureHandler(function(e) {
+    document.getElementById('sec-courses').innerHTML = '<p class="text-danger">錯誤：' + e.message + '</p>';
+  }).getCourses();
+}
+
+function renderCourses(courses) {
+  var h = '<h4 class="mb-4">課程管理</h4>';
+  // 新增表單
+  h += '<div class="card mb-4"><div class="card-header"><h6 class="mb-0">新增課程</h6></div><div class="card-body">';
+  h += '<form id="addCourseForm" class="row g-3">';
+  h += '<div class="col-md-2"><label class="form-label">日期</label><input type="date" class="form-control" id="cDate" required></div>';
+  h += '<div class="col-md-2"><label class="form-label">時間</label><select class="form-select" id="cTime" required><option value="">--</option>';
+  for (var i = 0; i < 24; i++) { var t = (i<10?'0':'')+i+':00'; h += '<option value="'+t+'">'+t+'</option>'; }
+  h += '</select></div>';
+  h += '<div class="col-md-2"><label class="form-label">類型</label><select class="form-select" id="cType"><option value="實體">實體</option><option value="線上">線上</option></select></div>';
+  h += '<div class="col-md-4"><label class="form-label">地點/連結</label><input type="text" class="form-control" id="cLoc" placeholder="地點或會議連結"></div>';
+  h += '<div class="col-md-2 d-flex align-items-end"><button type="submit" class="btn btn-primary w-100">新增</button></div>';
+  h += '</form></div></div>';
+
+  // 列表
+  h += '<div class="card"><div class="card-header"><h6 class="mb-0">課程列表</h6></div><div class="card-body">';
+  if (!courses.length) { h += '<p class="text-muted">目前沒有課程</p>'; }
+  else {
+    h += '<div class="table-responsive"><table class="table table-hover"><thead><tr><th>日期</th><th>時間</th><th>類型</th><th>地點</th><th>狀態</th><th>操作</th></tr></thead><tbody>';
+    courses.forEach(function(c) {
+      var loc = c.location || '-';
+      if (loc.indexOf('http') === 0) loc = '<a href="'+loc+'" target="_blank">連結</a>';
+      var badge = '', actions = '';
+      if (c.status === 'upcoming') {
+        badge = '<span class="badge bg-warning text-dark">尚未開始</span>';
+        actions = '<button class="btn btn-sm btn-success me-1" onclick="doStart(\''+c.id+'\')">開始</button>';
+        actions += '<button class="btn btn-sm btn-outline-secondary me-1" onclick="doEditTime(\''+c.id+'\')">改時間</button>';
+        actions += '<button class="btn btn-sm btn-outline-secondary me-1" onclick="doEditLoc(\''+c.id+'\')">改地點</button>';
+        actions += '<button class="btn btn-sm btn-outline-danger" onclick="doDelCourse(\''+c.id+'\')">刪除</button>';
+      } else if (c.status === 'ongoing') {
+        badge = '<span class="badge bg-success">進行中</span>';
+        actions = '<button class="btn btn-sm btn-outline-secondary me-1" onclick="doEditLoc(\''+c.id+'\')">改地點</button>';
+        actions += '<button class="btn btn-sm btn-outline-danger" onclick="doEnd(\''+c.id+'\')">結束</button>';
+      } else { badge = '<span class="badge bg-secondary">已結束</span>'; }
+      h += '<tr><td>'+c.date+'</td><td>'+c.time+'</td><td><span class="badge '+(c.type==='實體'?'bg-success':'bg-info')+'">'+c.type+'</span></td>';
+      h += '<td>'+loc+'</td><td>'+badge+'</td><td>'+actions+'</td></tr>';
+    });
+    h += '</tbody></table></div>';
+  }
+  h += '</div></div>';
+  document.getElementById('sec-courses').innerHTML = h;
+
+  // bind form
+  setTimeout(function() {
+    var form = document.getElementById('addCourseForm');
+    if (form) form.onsubmit = function(e) {
+      e.preventDefault();
+      var d=document.getElementById('cDate').value, t=document.getElementById('cTime').value;
+      var type=document.getElementById('cType').value, loc=document.getElementById('cLoc').value;
+      if (!t) { alert2('請選擇時間','warning'); return; }
+      google.script.run.withSuccessHandler(function(r) { alert2(r.msg, r.ok?'success':'warning'); if(r.ok) loadCourses(); }).addCourse(d,t,type,loc);
+    };
+  }, 100);
+}
+
+function doStart(id) { if(!confirm('確定開始上課？')) return; google.script.run.withSuccessHandler(function(r){alert2(r.msg,r.ok?'success':'danger');loadCourses();}).setCourseStatus(id,'ongoing'); }
+function doEnd(id) { if(!confirm('確定結束？未簽到者將記曠課。')) return; google.script.run.withSuccessHandler(function(r){alert2(r.msg,r.ok?'success':'danger');loadCourses();}).setCourseStatus(id,'ended'); }
+function doDelCourse(id) { if(!confirm('確定刪除？')) return; google.script.run.withSuccessHandler(function(r){alert2(r.msg,r.ok?'success':'danger');loadCourses();}).deleteCourse(id); }
+function doEditTime(id) { var t=prompt('新時間（如 14:00）：'); if(!t) return; if(!/^\d{2}:00$/.test(t)){alert2('格式錯誤','warning');return;} google.script.run.withSuccessHandler(function(r){alert2(r.msg,r.ok?'success':'danger');loadCourses();}).updateCourseTime(id,t); }
+function doEditLoc(id) { var loc=prompt('新地點或連結：'); if(loc===null) return; google.script.run.withSuccessHandler(function(r){alert2(r.msg,r.ok?'success':'danger');loadCourses();}).updateCourseLocation(id,loc); }
+
+// === 出缺席管理 ===
+function loadAttPage() {
+  var h = '<h4 class="mb-4">出缺席管理</h4>';
+  h += '<div class="card mb-4"><div class="card-body"><div class="row g-3">';
+  h += '<div class="col-md-8"><select class="form-select" id="attSel"><option value="">-- 選擇課程 --</option></select></div>';
+  h += '<div class="col-md-4"><button class="btn btn-primary w-100" onclick="queryAtt()">查詢</button></div>';
+  h += '</div></div></div>';
+  h += '<div id="attResult"></div>';
+  document.getElementById('sec-att').innerHTML = h;
+  // load course options
+  google.script.run.withSuccessHandler(function(courses) {
+    var sel = document.getElementById('attSel');
+    courses.forEach(function(c) { sel.innerHTML += '<option value="'+c.id+'">'+c.date+' '+c.time+' ('+c.type+') - '+c.status+'</option>'; });
+  }).getCourses();
+}
+
+function queryAtt() {
+  var id = document.getElementById('attSel').value;
+  if (!id) { alert2('請選擇課程','warning'); return; }
+  google.script.run.withSuccessHandler(function(records) {
+    renderAtt(records, id);
+  }).withFailureHandler(function(e) {
+    document.getElementById('attResult').innerHTML = '<p class="text-danger">錯誤：'+e.message+'</p>';
+  }).getAtt(id);
+}
+
+function renderAtt(records, courseId) {
+  var el = document.getElementById('attResult');
+  if (!records.length) { el.innerHTML = '<div class="card"><div class="card-body text-muted">此課程尚無紀錄</div></div>'; return; }
+  var h = '<div class="card"><div class="card-body"><div class="table-responsive"><table class="table table-hover">';
+  h += '<thead><tr><th>姓名</th><th>帳號</th><th>狀態</th><th>時間</th><th>備註</th><th>操作</th></tr></thead><tbody>';
+  records.forEach(function(r) {
+    var badge = '';
+    if (r.status === '簽到') badge = '<span class="badge bg-success">簽到</span>';
+    else if (r.status === '請假') badge = '<span class="badge bg-warning text-dark">請假</span>';
+    else badge = '<span class="badge bg-danger">曠課</span>';
+    var action = '';
+    if (r.status === '簽到') {
+      action += '<button class="btn btn-sm btn-warning me-1" onclick="changeAtt(\''+courseId+'\',\''+r.username+'\',\'請假\')">改請假</button>';
+      action += '<button class="btn btn-sm btn-danger" onclick="changeAtt(\''+courseId+'\',\''+r.username+'\',\'曠課\')">改曠課</button>';
+    } else if (r.status === '請假') {
+      action += '<button class="btn btn-sm btn-success me-1" onclick="changeAtt(\''+courseId+'\',\''+r.username+'\',\'簽到\')">改簽到</button>';
+      action += '<button class="btn btn-sm btn-danger" onclick="changeAtt(\''+courseId+'\',\''+r.username+'\',\'曠課\')">改曠課</button>';
+    } else {
+      action += '<button class="btn btn-sm btn-success me-1" onclick="changeAtt(\''+courseId+'\',\''+r.username+'\',\'簽到\')">改簽到</button>';
+      action += '<button class="btn btn-sm btn-warning" onclick="changeAtt(\''+courseId+'\',\''+r.username+'\',\'請假\')">改請假</button>';
+    }
+    h += '<tr><td>'+r.name+'</td><td>'+r.username+'</td><td>'+badge+'</td><td>'+r.time+'</td><td>'+r.note+'</td><td>'+action+'</td></tr>';
+  });
+  h += '</tbody></table></div>';
+  h += '<hr><h6>協助學員請假</h6><div class="row g-3">';
+  h += '<div class="col-md-5"><input type="text" class="form-control" id="alUser" placeholder="學員帳號"></div>';
+  h += '<div class="col-md-4"><input type="text" class="form-control" id="alReason" placeholder="原因（選填）"></div>';
+  h += '<div class="col-md-3"><button class="btn btn-warning w-100" onclick="doAdminLeaveManual(\''+courseId+'\')">協助請假</button></div></div>';
+  h += '</div></div>';
+  el.innerHTML = h;
+}
+
+function changeAtt(courseId, username, newStatus) {
+  if (!confirm('確定將 ' + username + ' 改為「' + newStatus + '」？')) return;
+  google.script.run.withSuccessHandler(function(r) {
+    alert2(r.msg, r.ok ? 'success' : 'danger');
+    queryAtt();
+  }).changeAttStatus(courseId, username, newStatus);
+}
+
+function doAdminLeaveManual(cid) { var u=document.getElementById('alUser').value.trim(); if(!u){alert2('請輸入帳號','warning');return;} var reason=document.getElementById('alReason').value.trim(); google.script.run.withSuccessHandler(function(r){alert2(r.msg,r.ok?'success':'danger');queryAtt();}).adminLeave(cid,u,U.username,reason||'管理員協助請假'); }
+</script>
+
+<script>
+// === 分組管理 ===
+function loadGroups() {
+  document.getElementById('sec-groups').innerHTML = '<p class="text-muted">載入中...</p>';
+  google.script.run.withSuccessHandler(renderGroups).withFailureHandler(function(e) {
+    document.getElementById('sec-groups').innerHTML = '<p class="text-danger">錯誤：'+e.message+'</p>';
+  }).getMembers();
+}
+
+function renderGroups(members) {
+  var students = members.filter(function(m) { return m.role === 'student'; });
+  var h = '<h4 class="mb-4">分組管理</h4><div class="card"><div class="card-body">';
+  h += '<div class="table-responsive"><table class="table table-hover">';
+  h += '<thead><tr><th>姓名</th><th>帳號</th><th>目前組別</th><th>新組別</th><th class="text-center">組長</th></tr></thead><tbody>';
+  students.forEach(function(s) {
+    var badge = s.group ? '<span class="badge" style="background:#66bb6a">'+s.group+'</span>' : '<span class="text-muted">未分組</span>';
+    h += '<tr><td>'+s.name+'</td><td>'+s.username+'</td><td>'+badge+'</td>';
+    h += '<td><select class="form-select form-select-sm gsel" data-u="'+s.username+'"><option value="">未分組</option>';
+    for (var i=1;i<=8;i++) { var v='第'+i+'組'; h += '<option value="'+v+'"'+(s.group===v?' selected':'')+'>'+v+'</option>'; }
+    h += '</select></td>';
+    h += '<td class="text-center"><input type="checkbox" class="form-check-input gldr" data-u="'+s.username+'"'+(s.isLeader?' checked':'')+'></td></tr>';
+  });
+  h += '</tbody></table></div>';
+  h += '<button class="btn btn-primary" onclick="doSaveGroups()">儲存分組</button>';
+
+  // 總覽
+  var groups = {};
+  students.forEach(function(s) { if(s.group) { if(!groups[s.group]) groups[s.group]=[]; groups[s.group].push({name:s.name,isLeader:s.isLeader}); } });
+  var gk = Object.keys(groups).sort();
+  if (gk.length) {
+    h += '<hr><h6>分組總覽</h6><div class="row">';
+    gk.forEach(function(g) {
+      var sorted = groups[g].sort(function(a,b){return b.isLeader-a.isLeader;});
+      h += '<div class="col-md-3 mb-3"><div class="card" style="border:1px solid #a8d5ba"><div class="card-header text-white" style="background:#6dbf8b">'+g+'</div>';
+      h += '<ul class="list-group list-group-flush">';
+      sorted.forEach(function(m) { h += '<li class="list-group-item">'+(m.isLeader?'<strong>'+m.name+' (組長)</strong>':m.name)+'</li>'; });
+      h += '</ul></div></div>';
+    });
+    h += '</div>';
+  }
+  h += '</div></div>';
+  document.getElementById('sec-groups').innerHTML = h;
+}
+
+function doSaveGroups() {
+  var sels = document.querySelectorAll('.gsel');
+  var data = [];
+  sels.forEach(function(sel) {
+    var u = sel.dataset.u;
+    var chk = document.querySelector('.gldr[data-u="'+u+'"]');
+    data.push({ username: u, group: sel.value, isLeader: chk ? chk.checked : false });
+  });
+  google.script.run.withSuccessHandler(function(r) { alert2(r.msg, r.ok?'success':'danger'); loadGroups(); loadHome(); }).saveGroups(data);
+}
+
+// === 成員管理 ===
+function loadMembers() {
+  document.getElementById('sec-members').innerHTML = '<p class="text-muted">載入中...</p>';
+  google.script.run.withSuccessHandler(renderMembers).withFailureHandler(function(e) {
+    document.getElementById('sec-members').innerHTML = '<p class="text-danger">錯誤：'+e.message+'</p>';
+  }).getMembers();
+}
+
+function renderMembers(members) {
+  var h = '<h4 class="mb-4">成員管理</h4>';
+  h += '<div class="card mb-4"><div class="card-header"><h6 class="mb-0">新增成員</h6></div><div class="card-body">';
+  h += '<form id="addMemberForm" class="row g-3">';
+  h += '<div class="col-md-3"><input type="text" class="form-control" id="mUser" placeholder="帳號" required></div>';
+  h += '<div class="col-md-2"><input type="text" class="form-control" id="mPass" placeholder="密碼" required></div>';
+  h += '<div class="col-md-3"><input type="text" class="form-control" id="mName" placeholder="姓名" required></div>';
+  h += '<div class="col-md-2"><select class="form-select" id="mRole"><option value="student">學員</option><option value="teacher">老師</option><option value="admin">管理員</option></select></div>';
+  h += '<div class="col-md-2"><button type="submit" class="btn btn-primary w-100">新增</button></div>';
+  h += '</form></div></div>';
+
+  h += '<div class="card"><div class="card-body"><div class="table-responsive"><table class="table table-hover">';
+  h += '<thead><tr><th>帳號</th><th>姓名</th><th>角色</th><th>組別</th><th>組長</th><th>狀態</th><th>連續請假</th><th>操作</th></tr></thead><tbody>';
+  members.forEach(function(m) {
+    var role = m.role==='admin'?'<span class="badge bg-danger">管理員</span>':m.role==='teacher'?'<span class="badge" style="background:#4caf50">老師</span>':'<span class="badge bg-secondary">學員</span>';
+    var status = m.locked?'<span class="badge bg-danger">已鎖定</span>':'<span class="badge bg-success">正常</span>';
+    var actions = '';
+    if (m.locked) actions += '<button class="btn btn-sm btn-warning me-1" onclick="doUnlock(\''+m.username+'\')">解鎖</button>';
+    actions += '<button class="btn btn-sm btn-outline-danger" onclick="doDelMember(\''+m.username+'\')">刪除</button>';
+    h += '<tr><td>'+m.username+'</td><td>'+m.name+'</td><td>'+role+'</td><td>'+(m.group||'-')+'</td><td>'+(m.isLeader?'是':'-')+'</td><td>'+status+'</td><td>'+m.consecutiveLeaves+'</td><td>'+actions+'</td></tr>';
+  });
+  h += '</tbody></table></div></div></div>';
+  document.getElementById('sec-members').innerHTML = h;
+
+  setTimeout(function() {
+    var form = document.getElementById('addMemberForm');
+    if (form) form.onsubmit = function(e) {
+      e.preventDefault();
+      var u=document.getElementById('mUser').value.trim(),p=document.getElementById('mPass').value.trim();
+      var n=document.getElementById('mName').value.trim(),r=document.getElementById('mRole').value;
+      google.script.run.withSuccessHandler(function(res){alert2(res.msg,res.ok?'success':'danger');if(res.ok)loadMembers();}).addMember(u,p,n,r);
+    };
+  }, 100);
+}
+
+function doUnlock(u) { if(!confirm('解鎖 '+u+'？')) return; google.script.run.withSuccessHandler(function(r){alert2(r.msg,r.ok?'success':'danger');loadMembers();}).unlockMember(u); }
+function doDelMember(u) { if(!confirm('刪除 '+u+'？無法復原。')) return; google.script.run.withSuccessHandler(function(r){alert2(r.msg,r.ok?'success':'danger');loadMembers();}).deleteMember(u); }
+</script>
+</body>
+</html>
