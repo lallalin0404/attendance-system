@@ -1,5 +1,5 @@
 /**
- * 薩提爾生命探索 - 簽到系統
+ * 小團體課程 - 簽到系統
  */
 
 var SHEET_ID = 'INSERT_GOOGLE_SHEET_ID';
@@ -10,7 +10,7 @@ function getSpreadsheet() {
 
 function doGet(e) {
   return HtmlService.createHtmlOutputFromFile('index')
-    .setTitle('薩提爾生命探索')
+    .setTitle('小團體課程')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
