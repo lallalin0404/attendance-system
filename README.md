@@ -1,4 +1,4 @@
-# 小團體 - 簽到系統
+# 小團體課程 - 簽到系統
 
 小型上課團體專用的出缺勤管理系統，使用 Google Apps Script + Google Sheets 建構。
 

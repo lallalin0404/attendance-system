@@ -11,5 +11,6 @@ Thumbs.db
 # Environment
 .env
 
-# 含有實際 Sheet ID 的檔案
+# 含有實際 Sheet ID 或個人資訊的檔案
 Code.gs
+index.html
