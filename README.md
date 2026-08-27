@@ -2,6 +2,8 @@
 
 小型上課團體專用的出缺勤管理系統，使用 Google Apps Script + Google Sheets 建構。
 
+[English version →](./README.en.md)
+
 ## 功能概覽
 
 **學員端**
@@ -41,9 +43,9 @@
 ```
 ├── Code.gs        # 後端邏輯（API）
 ├── index.html     # 前端頁面（SPA）
-├── sign.py        # 專案說明（非執行用）
 ├── .gitignore
-└── README.md
+├── README.md      # 中文說明
+└── README.en.md   # 英文 case study
 ```
 
 ## 存取權限
