@@ -86,13 +86,19 @@ Measured honestly, without invented percentages:
 
 ## Screenshots
 
-<!-- TODO: add real screenshots. Suggested set:
-     1. Student dashboard (attendance summary + upcoming sessions)
-     2. Course management (admin)
-     3. Attendance review with manual override (admin)
-     4. Group management overview -->
+**Student dashboard** — attendance summary, study group, and upcoming sessions with per-session leave/sign-in actions.
 
-_Screenshots coming soon._
+![Student dashboard](./screenshots/dashboard.png)
+
+**Course management (admin)** — create sessions and drive their lifecycle: start, reschedule, change location, delete.
+
+![Course management](./screenshots/courses.png)
+
+**Member management (admin)** — roles, group assignment, lock status, consecutive-leave count, and unlock/remove actions.
+
+![Member management](./screenshots/members.png)
+
+_(Personal data in the screenshots has been redacted.)_
 
 ## Tech Stack
 
